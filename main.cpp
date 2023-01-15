@@ -26,8 +26,8 @@ public:
         this->y = y;
         for (int i = 0; i < 3; i++)
         {
-            verts[i].color = { 255, 255, 255, 255 };
-            verts[i].tex_coord = { 0 };
+            verts[i].color = {255, 255, 255, 255};
+            verts[i].tex_coord = {0};
         }
         update_verts();
     }
@@ -36,16 +36,16 @@ public:
     {
         this->x = std::clamp(x, 0, screen_w);
         this->y = y;
-       
+
         update_verts();
     }
 
 private:
     void update_verts()
     {
-        verts[0].position = { (float)x, y - 25.98f };
-        verts[1].position = { x + 15.0f, (float)y };
-        verts[2].position = { x - 15.0f, (float)y };
+        verts[0].position = {(float)x, y - 25.98f};
+        verts[1].position = {x + 15.0f, (float)y};
+        verts[2].position = {x - 15.0f, (float)y};
     }
 };
 
@@ -118,10 +118,10 @@ public:
     }
 };
 */
-class Bullet
+class Missile
 {
 public:
-    Bullet(int x, int y, int speed)
+    Missile(int x, int y, int speed)
     {
         this->x = x;
         this->y = y;
@@ -129,7 +129,7 @@ public:
         active = true;
     }
 
-    Bullet(int x, int y)
+    Missile(int x, int y)
     {
         this->x = x;
         this->y = y;
@@ -147,7 +147,6 @@ public:
         {
             active = false;
         }
-    
     }
 
     bool is_active()
@@ -155,10 +154,10 @@ public:
         return active;
     }
 
-    void draw(SDL_Renderer* renderer)
+    void draw(SDL_Renderer *renderer)
     {
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        SDL_Rect rect{ x, y - 25, 4, 4 };
+        SDL_Rect rect{x, y - 25, 4, 4};
         SDL_RenderFillRect(renderer, &rect);
     }
 
@@ -179,12 +178,9 @@ private:
     bool active;
 };
 
-void renderBackground(SDL_Surface* surface)
+void renderBackground(uint8_t *pixelArray)
 {
-    SDL_LockSurface(surface);
-
     srand(time(NULL));
-    uint8_t* pixelArray = (uint8_t*)surface->pixels;
 
     for (int i = 0; i < num_stars; i++)
     {
@@ -192,20 +188,17 @@ void renderBackground(SDL_Surface* surface)
         int y = rand() % screen_h;
         for (int j = 0; j < 2; j++)
         {
-            pixelArray[y * surface->pitch + x * surface->format->BytesPerPixel + 0] = (uint8_t)255;
-            pixelArray[y * surface->pitch + x * surface->format->BytesPerPixel + 1] = 255;
-            pixelArray[y * surface->pitch + x * surface->format->BytesPerPixel + 2] = 255;
+            pixelArray[y * screen_w * 4 + x * 4 + 0] = 255;
+            pixelArray[y * screen_w * 4 + x * 4 + 1] = 255;
+            pixelArray[y * screen_w * 4 + x * 4 + 2] = 255;
             ++x;
         }
     }
-    SDL_UnlockSurface(surface);
 }
 
-void scroll_bkg(SDL_Surface* surface)
+void scroll_bkg(uint8_t *pixelArray)
 {
-    SDL_LockSurface(surface);
-    uint8_t* pixelArray = (uint8_t*)surface->pixels;
-    uint8_t* tmp = new uint8_t[screen_w * 4];
+    uint8_t *tmp = new uint8_t[screen_w * 4];
 
     for (int r = screen_h - 2; r >= 0; r--)
     {
@@ -214,104 +207,99 @@ void scroll_bkg(SDL_Surface* surface)
         std::memcpy(pixelArray + ((r + 1) * screen_w * 4), tmp, screen_w * 4);                             // tmp stored in i + 1
     }
 
-    SDL_UnlockSurface(surface);
-
     delete[] tmp;
 }
 
 int main()
 {
-    SDL_Window* window = nullptr;
-    SDL_Surface* screen;
-    SDL_Texture* texture;
+
+    uint8_t *pixels = new uint8_t[screen_w * screen_h * 4]();
+    SDL_Window *window = nullptr;
+    SDL_Texture *texture = nullptr;
+    SDL_Renderer *renderer = nullptr;
+    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         std::cout << "Initializiton Failed \n"
-            << SDL_GetError();
+                  << SDL_GetError();
     }
     else
     {
         std::cout << "Video initialized properly\n";
     }
+
     window = SDL_CreateWindow("Schmaliga", 200, 200, screen_w, screen_h, SDL_WINDOW_SHOWN);
-    screen = SDL_GetWindowSurface(window);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screen_w, screen_h);
 
-    renderBackground(screen);
-    SDL_UpdateWindowSurface(window);
-
+    renderBackground(pixels);
+    SDL_UpdateTexture(texture, NULL, pixels, screen_w * 4);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-    texture = SDL_CreateTextureFromSurface(renderer, screen);
-    Player player{ screen_w / 2, screen_h - 65 };
-    std::vector<Bullet> bullets;
 
-    clock_t last_bullet = 0;
-    
+    Player player{screen_w / 2, screen_h - 65};
+    std::vector<Missile> missiles;
+
+    clock_t last_missile = 0;
+
     int counter = 0;
     bool gameIsRunning = true;
+    bool isMovingRight = false;
+    bool isMovingLeft = false;
     while (gameIsRunning)
     {
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
-            switch(event.type)
+            if (event.type == SDL_QUIT)
             {
-                case SDL_QUIT:
-                    gameIsRunning = false;
-                    break;
-
-                case SDL_KEYDOWN:
-                    switch (event.key.keysym.sym) {
-                    case SDLK_LEFT:
-                        player.update_pos(player.x - 5, player.y);
-                        break;
-                    case SDLK_RIGHT:
-                        player.update_pos(player.x + 5, player.y);
-                        break;
-                    case SDLK_UP:
-                        if ((double)(clock() - last_bullet) / CLOCKS_PER_SEC > 0.001 )
-                        {
-                            bullets.push_back({ player.x, player.y });
-                        }
-                        last_bullet = clock();
-                        break;
-                    default:
-                        break;
-                    }
+                gameIsRunning = false;
+            }
+            if (keyboard[SDL_SCANCODE_LEFT])
+            {
+                player.update_pos(player.x - 5, player.y);
+            }
+            else if (keyboard[SDL_SCANCODE_RIGHT])
+            {
+                player.update_pos(player.x + 5, player.y);
+            }
+            if (keyboard[SDL_SCANCODE_UP])
+            {
+                if ((double)(clock() - last_missile) / CLOCKS_PER_SEC > 0.5)
+                {
+                    missiles.push_back({player.x, player.y});
+                    last_missile = clock();
+                }
             }
         }
 
-        //update bullets
-        for (int i = 0; i < bullets.size(); i++)
+        // update bullets
+        for (int i = 0; i < missiles.size(); i++)
         {
-            if (!bullets[i].is_active())
+            if (!missiles[i].is_active())
             {
-                bullets.erase(bullets.begin() + i);
+                missiles.erase(missiles.begin() + i);
             }
             else
             {
-                bullets[i].next_pos();
+                missiles[i].next_pos();
             }
         }
 
-        
-
-        scroll_bkg(screen);
-        SDL_UpdateTexture(texture, nullptr, screen->pixels, screen->pitch);
+        SDL_UpdateWindowSurface(window);
+        scroll_bkg(pixels);
+        SDL_UpdateTexture(texture, nullptr, pixels, screen_w * 4);
         SDL_RenderClear(renderer);
-        //render bullets
-        
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
         SDL_RenderGeometry(renderer, nullptr, player.verts, 3, nullptr, 0);
 
-        for (auto& bullet : bullets)
+        for (auto &missile : missiles)
         {
-            bullet.draw(renderer);
+            missile.draw(renderer);
         }
         SDL_RenderPresent(renderer);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
         counter++;
     }
     SDL_DestroyWindow(window);

@@ -26,8 +26,8 @@ public:
         this->y = y;
         for (int i = 0; i < 3; i++)
         {
-            verts[i].color = {255, 255, 255, 255};
-            verts[i].tex_coord = {0};
+            verts[i].color = { 255, 255, 255, 255 };
+            verts[i].tex_coord = { 0 };
         }
         update_verts();
     }
@@ -43,81 +43,96 @@ public:
 private:
     void update_verts()
     {
-        verts[0].position = {(float)x, y - 25.98f};
-        verts[1].position = {x + 15.0f, (float)y};
-        verts[2].position = {x - 15.0f, (float)y};
+        verts[0].position = { (float)x, y - 25.98f };
+        verts[1].position = { x + 15.0f, (float)y };
+        verts[2].position = { x - 15.0f, (float)y };
     }
 };
 
-/* unfinished class
 class Enemy
 {
 public:
-    SDL_Rect body;
-
-public:
-    Enemy(int x, int y, int w, int h)
+    Enemy(int x, int y)
     {
+        active = true;
         body.x = x;
         body.y = y;
-        body.w = w;
-        body.h = h;
-    }
-    void updatePos(int x, int y)
-    {
-        body.x = x;
-        body.y = y;
-    }
-    void render(SDL_Surface *surface)
-    {
-        SDL_FillRect(surface, &body, SDL_MapRGB(255, 255, 255));
-    }
-};
-
-class EnemyBasic : public Enemy
-{
-private:
-     bool isBackwards = false;
-     int moveDelay = 5;
-public:
-    EnemyBasic(int x, int y)
-    {
-        body.x = x;
-        body.y = y
         body.w = 20;
         body.h = 20;
     }
+
+    void draw(SDL_Renderer *renderer)
+    {
+        SDL_RenderFillRect(renderer, &body);
+    }
+
     void next_pos()
     {
-        if(moveDelay != 0)
+        if (moveDelay != 0)
         {
             --moveDelay;
             return;
         }
-        if(body.x >= screen_w - 20)
+        else
         {
-            body.y = body.y - 25;
-            body.x = screen_w -5;
+            moveDelay = 10;
+        }
+        if (body.x >= screen_w - 20)
+        {
+            if (body.y - 25 >= screen_h)
+            {
+                active = false;
+                return;
+            }
+            body.y = body.y + 25;
+            body.x = screen_w - 5;
             isBackwards = true;
         }
-        if(body.x <= 0)
+        if (body.x <= 0)
         {
-            body.y = body.y -25
+            if (body.y - 25 >= screen_h)
+            {
+                active = false;
+                return;
+            }
+            body.y = body.y + 25;
             body.x = 5;
             isBackwards = false;
         }
-        if(isBackwards)
+        if (isBackwards)
         {
             body.x = body.x - 20;
         }
-        else()
+        else
         {
             body.x = body.x + 20;
-
         }
+
+
     }
+
+    bool is_active()
+    {
+        return active;
+    }
+
+    int get_x()
+    {
+        return body.x;
+    }
+
+    int get_y()
+    {
+        return body.y;
+    }
+
+private: 
+    bool isBackwards = false;
+    int moveDelay = 5;
+    bool active;
+    SDL_Rect body;
 };
-*/
+
 class Missile
 {
 public:
@@ -133,7 +148,7 @@ public:
     {
         this->x = x;
         this->y = y;
-        this->speed = 1;
+        this->speed = 2;
         active = true;
     }
 
@@ -154,10 +169,9 @@ public:
         return active;
     }
 
-    void draw(SDL_Renderer *renderer)
+    void draw(SDL_Renderer* renderer)
     {
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        SDL_Rect rect{x, y - 25, 4, 4};
+        SDL_Rect rect{ x, y - 25, 6, 6 };
         SDL_RenderFillRect(renderer, &rect);
     }
 
@@ -178,10 +192,8 @@ private:
     bool active;
 };
 
-void renderBackground(uint8_t *pixelArray)
+void renderBackground(uint8_t* pixelArray)
 {
-    srand(time(NULL));
-
     for (int i = 0; i < num_stars; i++)
     {
         int x = rand() % screen_w;
@@ -196,9 +208,9 @@ void renderBackground(uint8_t *pixelArray)
     }
 }
 
-void scroll_bkg(uint8_t *pixelArray)
+void scroll_bkg(uint8_t* pixelArray)
 {
-    uint8_t *tmp = new uint8_t[screen_w * 4];
+    uint8_t* tmp = new uint8_t[screen_w * 4];
 
     for (int r = screen_h - 2; r >= 0; r--)
     {
@@ -210,19 +222,23 @@ void scroll_bkg(uint8_t *pixelArray)
     delete[] tmp;
 }
 
+enum Keys { UP, LEFT, RIGHT };
+
 int main()
 {
+    srand(time(NULL));
+    bool keysDown[3]{ false };
+    uint8_t* pixels = new uint8_t[screen_w * screen_h * 4]();
+    SDL_Window* window = nullptr;
+    SDL_Texture* texture = nullptr;
+    SDL_Renderer* renderer = nullptr;
+    const Uint8* keyboard = SDL_GetKeyboardState(NULL);
 
-    uint8_t *pixels = new uint8_t[screen_w * screen_h * 4]();
-    SDL_Window *window = nullptr;
-    SDL_Texture *texture = nullptr;
-    SDL_Renderer *renderer = nullptr;
-    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         std::cout << "Initializiton Failed \n"
-                  << SDL_GetError();
+            << SDL_GetError();
     }
     else
     {
@@ -237,8 +253,9 @@ int main()
     SDL_UpdateTexture(texture, NULL, pixels, screen_w * 4);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 
-    Player player{screen_w / 2, screen_h - 65};
+    Player player{ screen_w / 2, screen_h - 65 };
     std::vector<Missile> missiles;
+    std::vector<Enemy> enemies;
 
     clock_t last_missile = 0;
 
@@ -251,29 +268,45 @@ int main()
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
+            keysDown[Keys::LEFT] = false;
+            keysDown[Keys::RIGHT] = false;
+            keysDown[Keys::UP] = false;
             if (event.type == SDL_QUIT)
             {
                 gameIsRunning = false;
             }
             if (keyboard[SDL_SCANCODE_LEFT])
             {
-                player.update_pos(player.x - 5, player.y);
+                keysDown[Keys::LEFT] = true;
             }
             else if (keyboard[SDL_SCANCODE_RIGHT])
             {
-                player.update_pos(player.x + 5, player.y);
+                keysDown[Keys::RIGHT] = true;
             }
             if (keyboard[SDL_SCANCODE_UP])
             {
-                if ((double)(clock() - last_missile) / CLOCKS_PER_SEC > 0.5)
-                {
-                    missiles.push_back({player.x, player.y});
-                    last_missile = clock();
-                }
+                keysDown[Keys::UP] = true;
+            }
+            
+        }
+        if(keysDown[Keys::LEFT])
+        {
+            player.update_pos(player.x - 2, player.y);
+        }
+        else if(keysDown[Keys::RIGHT])
+        {
+            player.update_pos(player.x + 2, player.y);
+        }
+        if(keysDown[Keys::UP])
+        {
+            if ((double)(clock() - last_missile) / CLOCKS_PER_SEC > 0.25)
+            {
+                missiles.push_back({ player.x, player.y });
+                last_missile = clock();
             }
         }
 
-        // update bullets
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         for (int i = 0; i < missiles.size(); i++)
         {
             if (!missiles[i].is_active())
@@ -293,10 +326,50 @@ int main()
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
         SDL_RenderGeometry(renderer, nullptr, player.verts, 3, nullptr, 0);
 
-        for (auto &missile : missiles)
+        if (counter % 75 == 0)
+        {
+            enemies.push_back({ 5, 5 });
+        }
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+        for (int i = 0; i < enemies.size(); i++)
+        {
+            if (!enemies[i].is_active())
+            {
+                enemies.erase(enemies.begin() + i);
+            }
+            else
+            {
+                enemies[i].next_pos();
+                
+            }
+
+        }
+
+        for (int i = 0; i < enemies.size(); i++)
+        {
+            for (int j = 0; j < missiles.size(); j++)
+            {
+                int xDisplacement = enemies[i].get_x() - missiles[j].get_x();
+                int yDisplacement = enemies[i].get_y() - missiles[j].get_y();
+                if (xDisplacement <= 20 && xDisplacement >= 0 && yDisplacement >= -20 && yDisplacement <= 0)
+                {
+                    enemies.erase(enemies.begin() + i);
+                    missiles.erase(missiles.begin() + j);
+                }
+            }
+        }
+
+        for (auto& missile : missiles)
         {
             missile.draw(renderer);
         }
+
+        for (auto& enemy : enemies)
+        {
+            enemy.draw(renderer);
+        }
+
         SDL_RenderPresent(renderer);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));

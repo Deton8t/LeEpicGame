@@ -1,11 +1,14 @@
 #include <iostream>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_ttf.h>
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
 #include <thread>
 #include <vector>
 #include <cmath>
+#include <string>
 #include <algorithm>
 #undef main
 
@@ -222,6 +225,27 @@ void scroll_bkg(uint8_t* pixelArray)
     delete[] tmp;
 }
 
+//i dont like this, it is ineffecient 
+void render_text(TTF_Font* font, SDL_Renderer* renderer, const char* text)
+{
+    int tw = 0;
+    int th = 0;
+    SDL_Rect text_rect = {0, 0, 0, 0};
+
+    SDL_Surface* text_surface = TTF_RenderText_Solid(font, text, {255, 255, 255});
+    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+
+    SDL_QueryTexture(text_texture, nullptr, nullptr, &tw, &th);
+    text_rect.w = tw;
+    text_rect.h = th;
+    
+    SDL_RenderCopy(renderer, text_texture, &text_rect, &text_rect);
+    
+    SDL_FreeSurface(text_surface);
+    SDL_DestroyTexture(text_texture);
+    
+}
+
 enum Keys { UP, LEFT, RIGHT };
 
 int main()
@@ -232,18 +256,38 @@ int main()
     SDL_Window* window = nullptr;
     SDL_Texture* texture = nullptr;
     SDL_Renderer* renderer = nullptr;
+
+    Mix_Chunk* shoot_sound = nullptr;
+    Mix_Chunk* explode_sound = nullptr;
+
     const Uint8* keyboard = SDL_GetKeyboardState(NULL);
 
-
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     {
         std::cout << "Initializiton Failed \n"
             << SDL_GetError();
     }
     else
     {
-        std::cout << "Video initialized properly\n";
+        std::cout << "Video and audio initialized properly\n";
     }
+
+    //rate, format, channels, chunksize
+    if( Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 )
+    {
+        std::cout << "SDL_mixer failed to init, SDL_mixer Error: " << Mix_GetError();
+    }
+
+    if (TTF_Init() == -1)
+    {
+        std::cout << "error in init ttf: " << TTF_GetError() << '\n';
+    }
+
+    TTF_Font* font = TTF_OpenFont("./Ubuntu-M.ttf", 50);
+    
+
+    shoot_sound = Mix_LoadWAV("./shooting_sfx.wav");
+    explode_sound = Mix_LoadWAV("./explode_sfx.wav");
 
     window = SDL_CreateWindow("Schmaliga", 200, 200, screen_w, screen_h, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
@@ -259,6 +303,7 @@ int main()
 
     clock_t last_missile = 0;
 
+    int score = 0;
     int counter = 0;
     bool gameIsRunning = true;
     bool isMovingRight = false;
@@ -303,6 +348,7 @@ int main()
             {
                 missiles.push_back({ player.x, player.y });
                 last_missile = clock();
+                Mix_PlayChannel(-1, shoot_sound, 0);
             }
         }
 
@@ -323,15 +369,15 @@ int main()
         scroll_bkg(pixels);
         SDL_UpdateTexture(texture, nullptr, pixels, screen_w * 4);
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-        SDL_RenderGeometry(renderer, nullptr, player.verts, 3, nullptr, 0);
 
-        if (counter % 75 == 0)
+        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        
+
+        if (counter % 100 == 0)
         {
             enemies.push_back({ 5, 5 });
         }
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
         for (int i = 0; i < enemies.size(); i++)
         {
             if (!enemies[i].is_active())
@@ -356,19 +402,26 @@ int main()
                 {
                     enemies.erase(enemies.begin() + i);
                     missiles.erase(missiles.begin() + j);
+                    Mix_PlayChannel(-1, explode_sound, 0);
+                    score++;
                 }
             }
         }
 
+        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
         for (auto& missile : missiles)
         {
             missile.draw(renderer);
         }
 
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         for (auto& enemy : enemies)
         {
             enemy.draw(renderer);
         }
+
+        render_text(font, renderer, std::to_string(score).c_str());
+        SDL_RenderGeometry(renderer, nullptr, player.verts, 3, nullptr, 0);
 
         SDL_RenderPresent(renderer);
 
@@ -376,6 +429,7 @@ int main()
         counter++;
     }
     SDL_DestroyWindow(window);
+    Mix_Quit();
     SDL_Quit();
 
     return 0;

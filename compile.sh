@@ -1,1 +1,1 @@
-clang++ main.cpp -std=c++20 -I$HOMEBREW_CELLAR/sdl2/2.26.1/include -L$HOMEBREW_CELLAR/sdl2/2.26.1/lib -lSDL2-2.0.0 -oSchmaliga
+clang++ main.cpp -std=c++20 -I$HOMEBREW_CELLAR/sdl2/2.26.1/include -L$HOMEBREW_CELLAR/sdl2/2.26.1/lib -lSDL2-2.0.0 -I/opt/homebrew/Cellar/sdl2_mixer/2.6.2/include -L/opt/homebrew/Cellar/sdl2_mixer/2.6.2/lib -lSDL2_mixer-2.0.0 -I/opt/homebrew/Cellar/sdl2_ttf/2.20.1/include -L/opt/homebrew/Cellar/sdl2_ttf/2.20.1/lib -lSDL2_ttf-2.0.0  -oSchmaliga

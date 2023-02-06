@@ -29,8 +29,8 @@ public:
         this->y = y;
         for (int i = 0; i < 3; i++)
         {
-            verts[i].color = { 255, 255, 255, 255 };
-            verts[i].tex_coord = { 0 };
+            verts[i].color = {255, 255, 255, 255};
+            verts[i].tex_coord = {0};
         }
         update_verts();
     }
@@ -46,9 +46,9 @@ public:
 private:
     void update_verts()
     {
-        verts[0].position = { (float)x, y - 25.98f };
-        verts[1].position = { x + 15.0f, (float)y };
-        verts[2].position = { x - 15.0f, (float)y };
+        verts[0].position = {(float)x, y - 25.98f};
+        verts[1].position = {x + 15.0f, (float)y};
+        verts[2].position = {x - 15.0f, (float)y};
     }
 };
 
@@ -110,8 +110,6 @@ public:
         {
             body.x = body.x + 20;
         }
-
-
     }
 
     bool is_active()
@@ -129,7 +127,7 @@ public:
         return body.y;
     }
 
-private: 
+private:
     bool isBackwards = false;
     int moveDelay = 5;
     bool active;
@@ -151,7 +149,7 @@ public:
     {
         this->x = x;
         this->y = y;
-        this->speed = 2;
+        this->speed = 8;
         active = true;
     }
 
@@ -172,9 +170,9 @@ public:
         return active;
     }
 
-    void draw(SDL_Renderer* renderer)
+    void draw(SDL_Renderer *renderer)
     {
-        SDL_Rect rect{ x, y - 25, 6, 6 };
+        SDL_Rect rect{x, y - 25, 6, 6};
         SDL_RenderFillRect(renderer, &rect);
     }
 
@@ -195,7 +193,7 @@ private:
     bool active;
 };
 
-void renderBackground(uint8_t* pixelArray)
+void renderBackground(uint8_t *pixelArray)
 {
     for (int i = 0; i < num_stars; i++)
     {
@@ -211,9 +209,9 @@ void renderBackground(uint8_t* pixelArray)
     }
 }
 
-void scroll_bkg(uint8_t* pixelArray)
+void scroll_bkg(uint8_t *pixelArray)
 {
-    uint8_t* tmp = new uint8_t[screen_w * 4];
+    uint8_t *tmp = new uint8_t[screen_w * 4];
 
     for (int r = screen_h - 2; r >= 0; r--)
     {
@@ -225,55 +223,59 @@ void scroll_bkg(uint8_t* pixelArray)
     delete[] tmp;
 }
 
-//i dont like this, it is ineffecient 
-void render_text(TTF_Font* font, SDL_Renderer* renderer, const char* text)
+// i dont like this, it is ineffecient
+void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text)
 {
     int tw = 0;
     int th = 0;
     SDL_Rect text_rect = {0, 0, 0, 0};
 
-    SDL_Surface* text_surface = TTF_RenderText_Solid(font, text, {255, 255, 255});
-    SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+    SDL_Surface *text_surface = TTF_RenderText_Solid(font, text, {255, 255, 255});
+    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
 
     SDL_QueryTexture(text_texture, nullptr, nullptr, &tw, &th);
     text_rect.w = tw;
     text_rect.h = th;
-    
+
     SDL_RenderCopy(renderer, text_texture, &text_rect, &text_rect);
-    
+
     SDL_FreeSurface(text_surface);
     SDL_DestroyTexture(text_texture);
-    
 }
 
-enum Keys { UP, LEFT, RIGHT };
+enum Keys
+{
+    UP,
+    LEFT,
+    RIGHT
+};
 
 int main()
 {
     srand(time(NULL));
-    bool keysDown[3]{ false };
-    uint8_t* pixels = new uint8_t[screen_w * screen_h * 4]();
-    SDL_Window* window = nullptr;
-    SDL_Texture* texture = nullptr;
-    SDL_Renderer* renderer = nullptr;
+    bool keysDown[3]{false};
+    uint8_t *pixels = new uint8_t[screen_w * screen_h * 4]();
+    SDL_Window *window = nullptr;
+    SDL_Texture *texture = nullptr;
+    SDL_Renderer *renderer = nullptr;
 
-    Mix_Chunk* shoot_sound = nullptr;
-    Mix_Chunk* explode_sound = nullptr;
+    Mix_Chunk *shoot_sound = nullptr;
+    Mix_Chunk *explode_sound = nullptr;
 
-    const Uint8* keyboard = SDL_GetKeyboardState(NULL);
+    const Uint8 *keyboard = SDL_GetKeyboardState(NULL);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     {
         std::cout << "Initializiton Failed \n"
-            << SDL_GetError();
+                  << SDL_GetError();
     }
     else
     {
         std::cout << "Video and audio initialized properly\n";
     }
 
-    //rate, format, channels, chunksize
-    if( Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 )
+    // rate, format, channels, chunksize
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
     {
         std::cout << "SDL_mixer failed to init, SDL_mixer Error: " << Mix_GetError();
     }
@@ -283,11 +285,10 @@ int main()
         std::cout << "error in init ttf: " << TTF_GetError() << '\n';
     }
 
-    TTF_Font* font = TTF_OpenFont("./Ubuntu-M.ttf", 50);
-    
+    TTF_Font *font = TTF_OpenFont("./Ubuntu-M.ttf", 50);
 
-    shoot_sound = Mix_LoadWAV("./shooting_sfx.wav");
-    explode_sound = Mix_LoadWAV("./explode_sfx.wav");
+    shoot_sound = Mix_LoadWAV("./fire.wav");
+    explode_sound = Mix_LoadWAV("./point_score.wav");
 
     window = SDL_CreateWindow("Schmaliga", 200, 200, screen_w, screen_h, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
@@ -297,7 +298,7 @@ int main()
     SDL_UpdateTexture(texture, NULL, pixels, screen_w * 4);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 
-    Player player{ screen_w / 2, screen_h - 65 };
+    Player player{screen_w / 2, screen_h - 65};
     std::vector<Missile> missiles;
     std::vector<Enemy> enemies;
 
@@ -332,21 +333,20 @@ int main()
             {
                 keysDown[Keys::UP] = true;
             }
-            
         }
-        if(keysDown[Keys::LEFT])
+        if (keysDown[Keys::LEFT])
         {
             player.update_pos(player.x - 2, player.y);
         }
-        else if(keysDown[Keys::RIGHT])
+        else if (keysDown[Keys::RIGHT])
         {
             player.update_pos(player.x + 2, player.y);
         }
-        if(keysDown[Keys::UP])
+        if (keysDown[Keys::UP])
         {
             if ((double)(clock() - last_missile) / CLOCKS_PER_SEC > 0.25)
             {
-                missiles.push_back({ player.x, player.y });
+                missiles.push_back({player.x, player.y});
                 last_missile = clock();
                 Mix_PlayChannel(-1, shoot_sound, 0);
             }
@@ -371,11 +371,10 @@ int main()
         SDL_RenderClear(renderer);
 
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-        
 
         if (counter % 100 == 0)
         {
-            enemies.push_back({ 5, 5 });
+            enemies.push_back({5, 5});
         }
 
         for (int i = 0; i < enemies.size(); i++)
@@ -387,9 +386,7 @@ int main()
             else
             {
                 enemies[i].next_pos();
-                
             }
-
         }
 
         for (int i = 0; i < enemies.size(); i++)
@@ -398,7 +395,7 @@ int main()
             {
                 int xDisplacement = enemies[i].get_x() - missiles[j].get_x();
                 int yDisplacement = enemies[i].get_y() - missiles[j].get_y();
-                if (xDisplacement <= 20 && xDisplacement >= 0 && yDisplacement >= -20 && yDisplacement <= 0)
+                if (xDisplacement >= -30 && xDisplacement <= 10 && yDisplacement >= -30 && yDisplacement <= 0)
                 {
                     enemies.erase(enemies.begin() + i);
                     missiles.erase(missiles.begin() + j);
@@ -409,13 +406,13 @@ int main()
         }
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-        for (auto& missile : missiles)
+        for (auto &missile : missiles)
         {
             missile.draw(renderer);
         }
 
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        for (auto& enemy : enemies)
+        for (auto &enemy : enemies)
         {
             enemy.draw(renderer);
         }

@@ -16,6 +16,20 @@ const int screen_w = 640;
 const int screen_h = 480;
 const int num_stars = 300;
 
+struct Point3D
+{
+    float x;
+    float y;
+    int z;
+};
+
+enum Keys
+{
+    UP,
+    LEFT,
+    RIGHT
+};
+
 class Player
 {
 public:
@@ -259,34 +273,42 @@ private:
     bool active;
 };
 
-void renderBackground(uint8_t *pixelArray)
+std::vector<Point3D> get_points(int num_pts)
 {
-    for (int i = 0; i < num_stars; i++)
+    std::vector<Point3D> pts;
+    pts.reserve(num_pts);
+    for (int i = 0; i < num_pts; i++)
     {
-        int x = rand() % screen_w;
-        int y = rand() % screen_h;
-        for (int j = 0; j < 2; j++)
-        {
-            pixelArray[y * screen_w * 4 + x * 4 + 0] = 255;
-            pixelArray[y * screen_w * 4 + x * 4 + 1] = 255;
-            pixelArray[y * screen_w * 4 + x * 4 + 2] = 255;
-            ++x;
-        }
+        float x = rand() % screen_w;
+        float y = rand() % screen_h;
+        int z = rand() % 3;
+        pts.push_back({x, y, z});
     }
+
+    return pts;
 }
 
-void scroll_bkg(uint8_t *pixelArray)
+void move_pts(std::vector<Point3D> &pts)
 {
-    uint8_t *tmp = new uint8_t[screen_w * 4];
-
-    for (int r = screen_h - 2; r >= 0; r--)
+    for (Point3D &pt : pts)
     {
-        std::memcpy(tmp, pixelArray + (r * screen_w * 4), screen_w * 4);                                   // stores row i in tmp
-        std::memcpy(pixelArray + (r * screen_w * 4), pixelArray + ((r + 1) * screen_w * 4), screen_w * 4); // i + i stored in row i
-        std::memcpy(pixelArray + ((r + 1) * screen_w * 4), tmp, screen_w * 4);                             // tmp stored in i + 1
-    }
+        switch (pt.z)
+        {
+            case 0:
+                pt.y += 0.5;
+            case 1:
+                pt.y += 0.4;
+            case 2:
+                pt.y += 0.3;
+        }
 
-    delete[] tmp;
+        if (pt.y >= screen_h)
+        {
+            pt.y = 0;
+            pt.x = rand() % screen_w;
+            pt.z = rand() % 3;
+        }
+    }
 }
 
 // i dont like this, it is ineffecient
@@ -309,13 +331,6 @@ void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text, uint8
     SDL_DestroyTexture(text_texture);
 }
 
-enum Keys
-{
-    UP,
-    LEFT,
-    RIGHT
-};
-
 int main()
 {
     srand(time(NULL));
@@ -332,7 +347,7 @@ int main()
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     {
-        std::cout << "Initializiton Failed \n"
+        std::cout << "initialization Failed \n"
                   << SDL_GetError();
     }
     else
@@ -365,7 +380,17 @@ int main()
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screen_w, screen_h);
 
-    renderBackground(pixels);
+    std::vector<Point3D> pts = get_points(num_stars);
+    for (const Point3D &pt : pts)
+    {
+        int x = static_cast<int>(pt.x);
+        int y = static_cast<int>(pt.y);
+        pixels[y * screen_w * 4 + x * 4 + 0] = 255;
+        pixels[y * screen_w * 4 + x * 4 + 1] = 255;
+        pixels[y * screen_w * 4 + x * 4 + 2] = 255;
+        pixels[y * screen_w * 4 + x * 4 + 3] = 255;
+    }
+
     SDL_UpdateTexture(texture, NULL, pixels, screen_w * 4);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 
@@ -463,7 +488,20 @@ int main()
         }
 
         SDL_UpdateWindowSurface(window);
-        scroll_bkg(pixels);
+
+        std::memset(pixels, 0, screen_w * screen_h * 4);
+        move_pts(pts);
+
+        for (const Point3D &pt : pts)
+        {
+            int x = static_cast<int>(pt.x);
+            int y = static_cast<int>(pt.y);
+            pixels[y * screen_w * 4 + x * 4 + 0] = 255;
+            pixels[y * screen_w * 4 + x * 4 + 1] = 255;
+            pixels[y * screen_w * 4 + x * 4 + 2] = 255;
+            pixels[y * screen_w * 4 + x * 4 + 3] = 255;
+        }
+
         SDL_UpdateTexture(texture, nullptr, pixels, screen_w * 4);
         SDL_RenderClear(renderer);
 

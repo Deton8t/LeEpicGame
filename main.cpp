@@ -7,6 +7,7 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <numbers>
 #include <cmath>
 #include <string>
 #include <algorithm>
@@ -180,7 +181,6 @@ public:
 
     void next_pos() override
     {
-
         if (body.y + 3 >= screen_h)
         {
             active = false;
@@ -208,11 +208,90 @@ public:
     }
 
 private:
-    int moveDelay = 5;
     bool active;
     SDL_Rect body;
 };
 
+class Enemy3 : public Enemy
+{
+public:
+    Enemy3(int x, int y)
+    {
+        active = true;
+        first = true;
+        angle = 0.0;
+        body.x = x;
+        body.y = y;
+        body.w = 20;
+        body.h = 20;
+        int offset = rand() % screen_h / 4;
+        if (offset >= screen_h / 8)
+        {
+            offset -= screen_h / 8;
+            offset *= -1;
+        }
+        loop_y = screen_h / 2 + offset;
+    }
+
+    void draw(SDL_Renderer *renderer) override
+    {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+        SDL_RenderFillRect(renderer, &body);
+    }
+
+    void next_pos() override
+    {
+        int radius = screen_h / 15;
+
+        if(body.y >= loop_y && angle < 2.75 * std::numbers::pi)
+        {
+            if (first)
+            {
+                begin_x = body.x;
+                begin_y = body.y;
+                first = false;
+            }
+
+            body.x = begin_x + radius * std::cos(angle - std::numbers::pi/2);
+            body.y = radius + (begin_y + radius * std::sin(angle - std::numbers::pi/2));
+            angle += 0.1;
+            body.y += 3;
+        }
+        else
+        {
+           body.y += 3; 
+        }
+        if (body.y >= screen_h)
+        {
+            active = false;
+        }
+    }
+
+    bool is_active() override
+    {
+        return active;
+    }
+
+    int get_x() override
+    {
+        return body.x;
+    }
+
+    int get_y() override
+    {
+        return body.y;
+    }
+
+private:
+    int loop_y;
+    bool first;
+    bool active;
+    bool looping;
+    SDL_Rect body;
+    int begin_x;
+    int begin_y;
+    float angle;
+};
 
 class Missile
 {
@@ -476,6 +555,10 @@ int main()
             {
                 wave = 1;
             }
+            else if (seconds <= 90)
+            {
+                wave = 2;
+            }
 
             if (wave == 0)
             {
@@ -484,6 +567,10 @@ int main()
             else if (wave == 1)
             {
                 enemies.push_back(new Enemy2(rand() % screen_w, 0));
+            }
+            else if (wave == 2)
+            {
+                enemies.push_back(new Enemy3(rand() % screen_w, 5));
             }
         }
 

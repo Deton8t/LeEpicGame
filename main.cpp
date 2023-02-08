@@ -55,7 +55,17 @@ private:
 class Enemy
 {
 public:
-    Enemy(int x, int y)
+    virtual void draw(SDL_Renderer*) = 0;
+    virtual void next_pos() = 0;
+    virtual bool is_active() = 0;
+    virtual int get_x() = 0;
+    virtual int get_y() = 0;
+};
+
+class EnemyBasic : public Enemy
+{
+public:
+    EnemyBasic(int x, int y)
     {
         active = true;
         body.x = x;
@@ -64,12 +74,13 @@ public:
         body.h = 20;
     }
 
-    void draw(SDL_Renderer *renderer)
+    void draw(SDL_Renderer *renderer) override
     {
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_RenderFillRect(renderer, &body);
     }
 
-    void next_pos()
+    void next_pos() override
     {
         if (moveDelay != 0)
         {
@@ -97,7 +108,7 @@ public:
             {
                 active = false;
                 return;
-            }
+            } 
             body.y = body.y + 25;
             body.x = 5;
             isBackwards = false;
@@ -112,17 +123,17 @@ public:
         }
     }
 
-    bool is_active()
+    bool is_active() override
     {
         return active;
     }
 
-    int get_x()
+    int get_x() override
     {
         return body.x;
     }
 
-    int get_y()
+    int get_y() override
     {
         return body.y;
     }
@@ -133,6 +144,61 @@ private:
     bool active;
     SDL_Rect body;
 };
+
+
+class Enemy2 : public Enemy
+{
+public:
+    Enemy2(int x, int y)
+    {
+        active = true;
+        body.x = x;
+        body.y = y;
+        body.w = 20;
+        body.h = 20;
+    }
+
+    void draw(SDL_Renderer *renderer) override
+    {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+        SDL_RenderFillRect(renderer, &body);
+    }
+
+    void next_pos() override
+    {
+
+        if (body.y + 3 >= screen_h)
+        {
+            active = false;
+            return;
+        }
+        else
+        {
+            body.y += 3;
+        }
+    }
+
+    bool is_active() override
+    {
+        return active;
+    }
+
+    int get_x() override
+    {
+        return body.x;
+    }
+
+    int get_y() override
+    {
+        return body.y;
+    }
+
+private:
+    int moveDelay = 5;
+    bool active;
+    SDL_Rect body;
+};
+
 
 class Missile
 {
@@ -224,13 +290,13 @@ void scroll_bkg(uint8_t *pixelArray)
 }
 
 // i dont like this, it is ineffecient
-void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text)
+void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text, uint8_t r, uint8_t g, uint8_t b)
 {
     int tw = 0;
     int th = 0;
     SDL_Rect text_rect = {0, 0, 0, 0};
 
-    SDL_Surface *text_surface = TTF_RenderText_Solid(font, text, {255, 255, 255});
+    SDL_Surface *text_surface = TTF_RenderText_Solid(font, text, {r, g, b});
     SDL_Texture *text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
 
     SDL_QueryTexture(text_texture, nullptr, nullptr, &tw, &th);
@@ -285,7 +351,12 @@ int main()
         std::cout << "error in init ttf: " << TTF_GetError() << '\n';
     }
 
-    TTF_Font *font = TTF_OpenFont("./Ubuntu-M.ttf", 50);
+    TTF_Font *font = TTF_OpenFont("./retro_font.ttf", 50);
+
+    if (font == nullptr)
+    {
+        std::cout << "error in reading font file\n";
+    }
 
     shoot_sound = Mix_LoadWAV("./fire.wav");
     explode_sound = Mix_LoadWAV("./point_score.wav");
@@ -300,10 +371,12 @@ int main()
 
     Player player{screen_w / 2, screen_h - 65};
     std::vector<Missile> missiles;
-    std::vector<Enemy> enemies;
+    std::vector<Enemy*> enemies;
+
+    std::chrono::time_point<std::chrono::steady_clock> begin = std::chrono::steady_clock::now();
 
     clock_t last_missile = 0;
-
+    int wave = 0;
     int score = 0;
     int counter = 0;
     bool gameIsRunning = true;
@@ -365,6 +438,30 @@ int main()
             }
         }
 
+        if (counter % 100 == 0)
+        {   
+            std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
+            int seconds = std::chrono::duration_cast<std::chrono::seconds>(now - begin).count();
+
+            if (seconds <= 10)
+            {
+                wave = 0;
+            }
+            else if (seconds <= 60)
+            {
+                wave = 1;
+            }
+
+            if (wave == 0)
+            {
+                enemies.push_back(new EnemyBasic(5, 5));
+            }
+            else if (wave == 1)
+            {
+                enemies.push_back(new Enemy2(rand() % screen_w, 0));
+            }
+        }
+
         SDL_UpdateWindowSurface(window);
         scroll_bkg(pixels);
         SDL_UpdateTexture(texture, nullptr, pixels, screen_w * 4);
@@ -372,20 +469,16 @@ int main()
 
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
-        if (counter % 100 == 0)
-        {
-            enemies.push_back({5, 5});
-        }
-
         for (int i = 0; i < enemies.size(); i++)
         {
-            if (!enemies[i].is_active())
+            if (!enemies[i]->is_active())
             {
+                delete enemies[i];
                 enemies.erase(enemies.begin() + i);
             }
             else
             {
-                enemies[i].next_pos();
+                enemies[i]->next_pos();
             }
         }
 
@@ -393,10 +486,11 @@ int main()
         {
             for (int j = 0; j < missiles.size(); j++)
             {
-                int xDisplacement = enemies[i].get_x() - missiles[j].get_x();
-                int yDisplacement = enemies[i].get_y() - missiles[j].get_y();
+                int xDisplacement = enemies[i]->get_x() - missiles[j].get_x();
+                int yDisplacement = enemies[i]->get_y() - missiles[j].get_y();
                 if (xDisplacement >= -30 && xDisplacement <= 10 && yDisplacement >= -30 && yDisplacement <= 0)
                 {
+                    delete enemies[i];
                     enemies.erase(enemies.begin() + i);
                     missiles.erase(missiles.begin() + j);
                     Mix_PlayChannel(-1, explode_sound, 0);
@@ -411,13 +505,12 @@ int main()
             missile.draw(renderer);
         }
 
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        for (auto &enemy : enemies)
+        for (auto enemy : enemies)
         {
-            enemy.draw(renderer);
+            enemy->draw(renderer);
         }
 
-        render_text(font, renderer, std::to_string(score).c_str());
+        render_text(font, renderer, std::to_string(score).c_str(), 255, 255, 255);
         SDL_RenderGeometry(renderer, nullptr, player.verts, 3, nullptr, 0);
 
         SDL_RenderPresent(renderer);

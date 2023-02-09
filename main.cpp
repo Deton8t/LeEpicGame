@@ -75,14 +75,18 @@ public:
     virtual bool is_active() = 0;
     virtual int get_x() = 0;
     virtual int get_y() = 0;
+    virtual ~Enemy() = default;
 };
 
 class EnemyBasic : public Enemy
 {
 public:
-    EnemyBasic(int x, int y)
+    EnemyBasic(int x, int y) 
     {
         active = true;
+        looping = false;
+        t = std::numbers::pi/2;
+        dir = 1;
         body.x = x;
         body.y = y;
         body.w = 20;
@@ -97,44 +101,64 @@ public:
 
     void next_pos() override
     {
-        if (moveDelay != 0)
+        double a = 20.0;
+        
+        if (body.x >= screen_w - 45 && !looping)
         {
-            --moveDelay;
-            return;
+            t = std::numbers::pi/2 - 0.01;
+            dir = 0;
+            body.x -= 2;
+            begin_x = body.x;
+            begin_y = body.y;
+            looping = true;
+            
         }
-        else
-        {
-            moveDelay = 10;
+        if (body.x <= 45 && !looping && body.y > 10)
+        {   
+            t = std::numbers::pi/2 - 0.01;
+            dir = 1;
+            body.x += 2;
+            begin_x = body.x;
+            begin_y = body.y;
+            looping = true;
         }
-        if (body.x >= screen_w - 20)
+        
+
+        if (t > (-std::numbers::pi/2)- 0.2 && looping)
         {
-            if (body.y - 25 >= screen_h)
+            if (dir == 0)
             {
-                active = false;
-                return;
+                body.x = begin_x + (a * std::cos(t));
+                body.y = begin_y + (a * -std::sin(t)) - (a * -std::sin(std::numbers::pi/2));
+                t -= 0.1;
             }
-            body.y = body.y + 25;
-            body.x = screen_w - 5;
-            isBackwards = true;
-        }
-        if (body.x <= 0)
-        {
-            if (body.y - 25 >= screen_h)
+            else
             {
-                active = false;
-                return;
-            } 
-            body.y = body.y + 25;
-            body.x = 5;
-            isBackwards = false;
-        }
-        if (isBackwards)
-        {
-            body.x = body.x - 20;
+                body.x = begin_x - (a * std::cos(t));
+                body.y = begin_y + (a * -std::sin(t)) - (a * -std::sin(std::numbers::pi/2));
+                t -= 0.1;
+            }
         }
         else
         {
-            body.x = body.x + 20;
+            if (dir == 0)
+            {
+                body.x -= 2;
+            }
+            else
+            {
+                body.x += 3;
+            }
+        }
+        
+        if (t <= (-std::numbers::pi/2) - 0.2)
+        {
+            looping = false;
+        }
+
+        if (body.y >= screen_h)
+        {
+            active = false;
         }
     }
 
@@ -154,8 +178,11 @@ public:
     }
 
 private:
-    bool isBackwards = false;
-    int moveDelay = 5;
+    int begin_x;
+    int begin_y;
+    int dir;
+    bool looping;
+    double t;
     bool active;
     SDL_Rect body;
 };
@@ -255,7 +282,7 @@ public:
             body.x = begin_x + radius * std::cos(angle - std::numbers::pi/2);
             body.y = radius + (begin_y + radius * std::sin(angle - std::numbers::pi/2));
             angle += 0.1;
-            body.y += 3;
+            begin_y += 1;
         }
         else
         {
@@ -286,7 +313,6 @@ private:
     int loop_y;
     bool first;
     bool active;
-    bool looping;
     SDL_Rect body;
     int begin_x;
     int begin_y;
@@ -484,8 +510,6 @@ int main()
     int score = 0;
     int counter = 0;
     bool gameIsRunning = true;
-    bool isMovingRight = false;
-    bool isMovingLeft = false;
     while (gameIsRunning)
     {
         SDL_Event event;
@@ -513,11 +537,11 @@ int main()
         }
         if (keysDown[Keys::LEFT])
         {
-            player.update_pos(player.x - 2, player.y);
+            player.update_pos(player.x - 3, player.y);
         }
         else if (keysDown[Keys::RIGHT])
         {
-            player.update_pos(player.x + 2, player.y);
+            player.update_pos(player.x + 3, player.y);
         }
         if (keysDown[Keys::UP])
         {
@@ -541,13 +565,13 @@ int main()
                 missiles[i].next_pos();
             }
         }
-
+        
         if (counter % 100 == 0)
         {   
             std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
             int seconds = std::chrono::duration_cast<std::chrono::seconds>(now - begin).count();
 
-            if (seconds <= 10)
+            if (seconds <= 15)
             {
                 wave = 0;
             }
@@ -630,7 +654,7 @@ int main()
             missile.draw(renderer);
         }
 
-        for (auto enemy : enemies)
+        for (Enemy* enemy : enemies)
         {
             enemy->draw(renderer);
         }

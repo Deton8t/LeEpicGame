@@ -16,6 +16,8 @@
 const int screen_w = 640;
 const int screen_h = 480;
 const int num_stars = 300;
+int player_x;
+int player_y;
 
 struct Point3D
 {
@@ -56,6 +58,8 @@ public:
         this->y = y;
 
         update_verts();
+        player_x = this->x;
+        player_y = this->y;
     }
 
 private:
@@ -186,7 +190,6 @@ private:
     bool active;
     SDL_Rect body;
 };
-
 
 class Enemy2 : public Enemy
 {
@@ -319,6 +322,69 @@ private:
     float angle;
 };
 
+class Enemy4 : public Enemy
+{
+public:
+    Enemy4(int x, int y)
+    {
+        body.x = x;
+        body.y = y;
+        body.w = 15;
+        body.h = 15;
+        active = true;
+        start_y = 0;//(screen_h / 3) + ((rand() % screen_h / 4));
+        t = 0.0;
+        start_x = x;
+    }
+
+    void draw(SDL_Renderer *renderer) override
+    {
+        SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+        SDL_RenderFillRect(renderer, &body);
+    }
+
+    void next_pos() override
+    {
+        if (t <= 1.0)
+        {
+            int x1 = start_x;
+            int y1 = player_y - 75;
+
+            float u = 1.0 - t;
+            body.x = round(u*u*start_x + 2*u*t*x1 + t*t*player_x);
+            body.y = round(u*u*start_y + 2*u*t*y1 + t*t*player_y - 75);
+            t += 0.007;
+        }
+        
+        if (body.y >= screen_h || body.y >= player_y - 12)
+        {
+            active = false;
+        }
+    }
+
+    bool is_active() override
+    {
+        return active;
+    }
+
+    int get_x() override
+    {
+        return body.x;
+    }
+
+    int get_y() override
+    {
+        return body.y;
+    }
+
+private:
+    SDL_Rect body;
+    bool active;
+    int start_y;
+    int start_x; 
+    float t;
+};
+
 class Missile
 {
 public:
@@ -400,11 +466,11 @@ void move_pts(std::vector<Point3D> &pts)
         switch (pt.z)
         {
             case 0:
-                pt.y += 0.5;
-            case 1:
                 pt.y += 0.4;
-            case 2:
+            case 1:
                 pt.y += 0.3;
+            case 2:
+                pt.y += 0.2;
         }
 
         if (pt.y >= screen_h)
@@ -500,6 +566,8 @@ int main()
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 
     Player player{screen_w / 2, screen_h - 65};
+    player_x = player.x;
+    player_y = player.y;
     std::vector<Missile> missiles;
     std::vector<Enemy*> enemies;
 
@@ -566,27 +634,27 @@ int main()
             }
         }
         
-        if (counter % 100 == 0)
+        if (counter % 200 == 0)
         {   
             std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
             int seconds = std::chrono::duration_cast<std::chrono::seconds>(now - begin).count();
 
-            if (seconds <= 15)
+            if (seconds <= 25)
             {
                 wave = 0;
             }
-            else if (seconds <= 60)
+            else if (seconds <= 30)
             {
                 wave = 1;
             }
-            else if (seconds <= 90)
+            else if (seconds <= 40)
             {
                 wave = 2;
             }
 
             if (wave == 0)
             {
-                enemies.push_back(new EnemyBasic(5, 5));
+                enemies.push_back(new Enemy4(rand() % (screen_w - 35) + 35, 0));
             }
             else if (wave == 1)
             {

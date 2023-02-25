@@ -62,6 +62,11 @@ public:
         player_y = this->y;
     }
 
+    void draw(SDL_Renderer* renderer)
+    {
+        SDL_RenderGeometry(renderer, nullptr, verts, 3, nullptr, 0);
+    }
+    
 private:
     void update_verts()
     {
@@ -80,6 +85,7 @@ public:
     virtual int get_x() = 0;
     virtual int get_y() = 0;
     virtual ~Enemy() = default;
+    virtual int get_value() = 0;
 };
 
 class EnemyBasic : public Enemy
@@ -181,6 +187,12 @@ public:
         return body.y;
     }
 
+    int get_value() override
+    {
+        return 1;
+    }
+
+
 private:
     int begin_x;
     int begin_y;
@@ -237,6 +249,11 @@ public:
         return body.y;
     }
 
+    int get_value() override
+    {
+        return 2;
+    }
+
 private:
     bool active;
     SDL_Rect body;
@@ -250,48 +267,71 @@ public:
         active = true;
         first = true;
         angle = 0.0;
-        body.x = x;
-        body.y = y;
-        body.w = 20;
-        body.h = 20;
+        this->x = x;
+        this->y = y;
+        flip = rand() % 2 == 0;
+
         int offset = rand() % screen_h / 4;
         if (offset >= screen_h / 8)
         {
             offset -= screen_h / 8;
             offset *= -1;
         }
-        loop_y = screen_h / 2 + offset;
+        loop_y = screen_h / 4 + offset;
+
+        for (int i = 0; i < 3; i++)
+        {
+            verts[i].color = {255, 255, 255, 255};
+            verts[i].tex_coord = {0};
+        }
+        update_verts();
     }
 
     void draw(SDL_Renderer *renderer) override
     {
         SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
-        SDL_RenderFillRect(renderer, &body);
+        SDL_RenderGeometry(renderer, nullptr, verts, 3, nullptr, 0);
+        //SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        //SDL_RenderDrawPoint(renderer, x, y);
     }
 
     void next_pos() override
     {
         int radius = screen_h / 15;
-
-        if(body.y >= loop_y && angle < 2.75 * std::numbers::pi)
+        //writing std::numbers::pi is starting to annoy me i may replace it
+        if((y >= loop_y || !first) && angle < 2.0 * std::numbers::pi)
         {
             if (first)
             {
-                begin_x = body.x;
-                begin_y = body.y;
+                begin_x = x;
+                begin_y = y;
                 first = false;
             }
 
-            body.x = begin_x + radius * std::cos(angle - std::numbers::pi/2);
-            body.y = radius + (begin_y + radius * std::sin(angle - std::numbers::pi/2));
+            if (flip)
+            {
+                double t = 2.0 * std::numbers::pi - angle;
+                x = begin_x + radius * std::cos(t + std::numbers::pi) + radius;
+                y = begin_y + radius * std::sin(t + std::numbers::pi);
+                update_verts();
+                rot(t);
+            }
+            else
+            {
+                x = begin_x + (radius * std::cos(angle)) - radius;
+                y = begin_y + radius * std::sin(angle);
+                update_verts();
+                rot(angle);
+            }
+
             angle += 0.1;
-            begin_y += 1;
         }
         else
         {
-           body.y += 3; 
+           y += 3; 
+           update_verts();
         }
-        if (body.y >= screen_h)
+        if (y >= screen_h)
         {
             active = false;
         }
@@ -304,22 +344,49 @@ public:
 
     int get_x() override
     {
-        return body.x;
+        return x;
     }
 
     int get_y() override
     {
-        return body.y;
+        return y;
+    }
+
+    int get_value() override
+    {
+        return 3;
     }
 
 private:
+    int x;
+    int y;
+    SDL_Vertex verts[3]{};
+    bool flip;
     int loop_y;
     bool first;
     bool active;
-    SDL_Rect body;
     int begin_x;
     int begin_y;
     float angle;
+
+    //x and y are the center of the triangle
+    void update_verts()
+    {
+        verts[0].position = {static_cast<float>(x), y + 12.99f};
+        verts[1].position = {x + 5.0f, static_cast<float>(y) - 12.99f};
+        verts[2].position = {x - 5.0f, static_cast<float>(y) - 12.99f};
+    }
+
+    void rot(double angle)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            double x1 = verts[i].position.x;
+            double y1 = verts[i].position.y;
+            verts[i].position.x = std::cos(angle) * (x1 - x) - std::sin(angle) * (y1 - y) + x;
+            verts[i].position.y = std::sin(angle) * (x1 - x) + std::cos(angle) * (y1 - y) + y;
+        }
+    }
 };
 
 class Enemy4 : public Enemy
@@ -332,7 +399,7 @@ public:
         body.w = 15;
         body.h = 15;
         active = true;
-        start_y = 0;//(screen_h / 3) + ((rand() % screen_h / 4));
+        start_y = 0;
         t = 0.0;
         start_x = x;
     }
@@ -375,6 +442,11 @@ public:
     int get_y() override
     {
         return body.y;
+    }
+
+    int get_value() override
+    {
+        return 4;
     }
 
 private:
@@ -482,13 +554,14 @@ void move_pts(std::vector<Point3D> &pts)
     }
 }
 
-// i dont like this, it is ineffecient
-void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text, uint8_t r, uint8_t g, uint8_t b)
+void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text, uint8_t r, uint8_t g, uint8_t b, int x, int y)
 {
+    // i dont like this, it is ineffecient
+    
+    SDL_Rect text_rect = {x, y, 0, 0};
     int tw = 0;
     int th = 0;
-    SDL_Rect text_rect = {0, 0, 0, 0};
-
+    
     SDL_Surface *text_surface = TTF_RenderText_Solid(font, text, {r, g, b});
     SDL_Texture *text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
 
@@ -496,37 +569,36 @@ void render_text(TTF_Font *font, SDL_Renderer *renderer, const char *text, uint8
     text_rect.w = tw;
     text_rect.h = th;
 
-    SDL_RenderCopy(renderer, text_texture, &text_rect, &text_rect);
+    SDL_RenderCopy(renderer, text_texture, nullptr, &text_rect);
 
     SDL_FreeSurface(text_surface);
     SDL_DestroyTexture(text_texture);
 }
 
+double dist(int x1, int y1, int x2, int y2)
+{
+    return std::sqrt(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2));
+}
+
 int main()
 {
+    int lives = 3;
+    const int default_font_size = 50;
     srand(time(NULL));
     bool keysDown[3]{false};
     uint8_t *pixels = new uint8_t[screen_w * screen_h * 4]();
-    SDL_Window *window = nullptr;
-    SDL_Texture *texture = nullptr;
-    SDL_Renderer *renderer = nullptr;
-
-    Mix_Chunk *shoot_sound = nullptr;
-    Mix_Chunk *explode_sound = nullptr;
 
     const Uint8 *keyboard = SDL_GetKeyboardState(NULL);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     {
-        std::cout << "initialization Failed \n"
-                  << SDL_GetError();
+        std::cout << "initialization Failed \n" << SDL_GetError();
     }
     else
     {
         std::cout << "Video and audio initialized properly\n";
     }
 
-    // rate, format, channels, chunksize
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
     {
         std::cout << "SDL_mixer failed to init, SDL_mixer Error: " << Mix_GetError();
@@ -537,19 +609,19 @@ int main()
         std::cout << "error in init ttf: " << TTF_GetError() << '\n';
     }
 
-    TTF_Font *font = TTF_OpenFont("./retro_font.ttf", 50);
+    TTF_Font *font = TTF_OpenFont("./retro_font.ttf", default_font_size);
 
     if (font == nullptr)
     {
         std::cout << "error in reading font file\n";
     }
 
-    shoot_sound = Mix_LoadWAV("./fire.wav");
-    explode_sound = Mix_LoadWAV("./point_score.wav");
+    Mix_Chunk *shoot_sound = Mix_LoadWAV("./fire.wav");
+    Mix_Chunk *explode_sound = Mix_LoadWAV("./point_score.wav");
 
-    window = SDL_CreateWindow("Schmaliga", 200, 200, screen_w, screen_h, SDL_WINDOW_SHOWN);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screen_w, screen_h);
+    SDL_Window *window = SDL_CreateWindow("Schmaliga", 200, 200, screen_w, screen_h, SDL_WINDOW_SHOWN);
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, screen_w, screen_h);
 
     std::vector<Point3D> pts = get_points(num_stars);
     for (const Point3D &pt : pts)
@@ -654,7 +726,8 @@ int main()
 
             if (wave == 0)
             {
-                enemies.push_back(new Enemy4(rand() % (screen_w - 35) + 35, 0));
+                enemies.push_back(new EnemyBasic(5, 5));
+                //enemies.push_back(new Enemy3(rand() % screen_w, 5));
             }
             else if (wave == 1)
             {
@@ -683,7 +756,6 @@ int main()
 
         SDL_UpdateTexture(texture, nullptr, pixels, screen_w * 4);
         SDL_RenderClear(renderer);
-
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
         for (int i = 0; i < enemies.size(); i++)
@@ -707,12 +779,23 @@ int main()
                 int yDisplacement = enemies[i]->get_y() - missiles[j].get_y();
                 if (xDisplacement >= -30 && xDisplacement <= 10 && yDisplacement >= -30 && yDisplacement <= 0)
                 {
+                    score += enemies[i]->get_value();
                     delete enemies[i];
                     enemies.erase(enemies.begin() + i);
                     missiles.erase(missiles.begin() + j);
                     Mix_PlayChannel(-1, explode_sound, 0);
-                    score++;
                 }
+            }
+        }
+
+        for (int i = 0; i < enemies.size(); i++)
+        {   
+            double distance = dist(player.x, player.y - 13, enemies[i]->get_x() + 10, enemies[i]->get_y() + 10);
+            if (distance < 23) 
+            {
+                enemies.erase(enemies.begin() + i);
+                Mix_PlayChannel(-1, explode_sound, 0);
+                lives--;
             }
         }
 
@@ -727,14 +810,77 @@ int main()
             enemy->draw(renderer);
         }
 
-        render_text(font, renderer, std::to_string(score).c_str(), 255, 255, 255);
-        SDL_RenderGeometry(renderer, nullptr, player.verts, 3, nullptr, 0);
+        player.draw(renderer);
+
+        TTF_SetFontSize(font, default_font_size);
+        render_text(font, renderer, std::to_string(score).c_str(), 255, 255, 255, 5, 0);
+
+        int w,h;
+        TTF_SizeText(font, std::to_string(lives).c_str(), &w, &h);
+        render_text(font, renderer, std::to_string(lives).c_str(), 255, 255, 255, screen_w - w - 5, 0);
+        
+        if (lives == 0)
+        {
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 175);
+            SDL_RenderFillRect(renderer, nullptr);
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+            
+            const char* death_text = "you lost";
+            TTF_SetFontSize(font, 100);
+            TTF_SizeText(font, death_text, &w, &h);
+            render_text(font, renderer, death_text, 255, 255, 255, screen_w/2 - w/2, screen_h/2 - h);
+            //SDL_RenderPresent(renderer);
+            std::this_thread::sleep_for(std::chrono::milliseconds(750));
+            
+            const char* button_text = "Restart";
+            TTF_SetFontSize(font, 60);
+            TTF_SizeText(font, death_text, &w, &h);
+            int button_x = (screen_w - w)/2;
+            int button_y = screen_h / 2 + 30;
+            SDL_Rect button_rect{button_x - 5, button_y - 5,  w + 5, h + 5};
+            render_text(font, renderer, button_text, 255, 0, 0, button_x, button_y);
+            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            SDL_RenderDrawRect(renderer, &button_rect);
+            SDL_RenderPresent(renderer);
+
+            bool waiting = true;
+            while(waiting)
+            {
+                SDL_Event e;
+                while(SDL_PollEvent(&e))
+                {
+                    switch(e.type)
+                    {
+                    case SDL_QUIT:
+                        goto exit;
+                    case SDL_MOUSEBUTTONDOWN:
+                        int mouse_x, mouse_y;
+                        SDL_GetMouseState(&mouse_x, &mouse_y);
+
+                        if (mouse_x >= button_rect.x - 5 && mouse_x <= button_rect.x - 5 + button_rect.w - 5 &&
+                            mouse_y >= button_rect.y - 5 && mouse_y <= button_rect.y - 5 + button_rect.h - 5)
+                        {
+                            waiting = false;
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            //reset game
+            score = 0;
+            lives = 3;
+            begin = std::chrono::steady_clock::now();
+        }
 
         SDL_RenderPresent(renderer);
-
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         counter++;
     }
+
+exit:
     SDL_DestroyWindow(window);
     Mix_Quit();
     SDL_Quit();
